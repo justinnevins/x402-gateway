@@ -7,6 +7,7 @@ import {
   bazaarResourceServerExtension,
   declareDiscoveryExtension,
 } from '@x402/extensions/bazaar';
+import { createFacilitatorConfig } from '@coinbase/x402';
 import { config } from './config.js';
 import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
@@ -15,10 +16,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Create facilitator client
-const facilitatorClient = new HTTPFacilitatorClient({
-  url: config.facilitatorUrl,
-});
+// Use CDP facilitator for mainnet, x402.org for testnet
+const isMainnet = config.network === "eip155:8453";
+const facilitatorClient = isMainnet
+  ? new HTTPFacilitatorClient(createFacilitatorConfig(config.cdpApiKeyId, config.cdpApiKeySecret))
+  : new HTTPFacilitatorClient({ url: config.facilitatorUrl });
 
 // Create resource server and register EVM scheme + Bazaar extension
 const server = new x402ResourceServer(facilitatorClient);
@@ -36,7 +38,7 @@ app.use(
           {
             scheme: 'exact',
             price: '$0.001',
-            network: 'eip155:84532', // Base Sepolia
+            network: config.network as `${string}:${string}`,
             payTo,
           },
         ],
@@ -85,7 +87,7 @@ app.use(
           {
             scheme: 'exact',
             price: '$0.001',
-            network: 'eip155:84532', // Base Sepolia
+            network: config.network as `${string}:${string}`,
             payTo,
           },
         ],
@@ -144,7 +146,7 @@ app.get('/services', (_req, res) => {
     version: config.version,
     payTo,
     network: config.network,
-    facilitator: config.facilitatorUrl,
+    facilitator: isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl,
   });
 });
 
@@ -173,6 +175,6 @@ app.post('/execute', async (req, res) => {
 app.listen(config.port, '0.0.0.0', () => {
   console.log(`x402 Gateway listening on port ${config.port}`);
   console.log(`Network: ${config.network}`);
-  console.log(`Facilitator: ${config.facilitatorUrl}`);
+  console.log(`Facilitator: ${isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl}`);
   console.log(`Wallet: ${payTo.substring(0, 10)}...`);
 });

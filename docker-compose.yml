@@ -5,6 +5,8 @@ services:
       - "3402:3402"
     env_file:
       - .env
+    volumes:
+      - ./cdp_key.pem:/app/cdp_key.pem:ro
     restart: unless-stopped
     deploy:
       resources:

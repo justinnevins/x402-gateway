@@ -90,7 +90,7 @@ Compatible with any x402 client SDK: [`@x402/fetch`](https://www.npmjs.com/packa
 | `GET /services` | Free | — |
 | `GET /health` | Free | — |
 
-All prices in USDC on Base Sepolia (testnet). Mainnet (Base L2) coming soon.
+All prices in USDC on Base (L2). Facilitator: CDP (Coinbase) — 1,000 free transactions/month.
 
 ## Self-Hosting
 
@@ -112,7 +112,11 @@ cp .env.example .env
 # Edit .env with your values:
 #   WALLET_ADDRESS=0xYour...
 #   E2B_API_KEY=your_key
-#   FACILITATOR_URL=https://x402.org/facilitator
+#   CDP_API_KEY_ID=organizations/... (from https://cdp.coinbase.com)
+
+# Add your CDP PEM key (MUST be PKCS8 format):
+# openssl pkcs8 -topk8 -nocrypt -in your_key.pem -out cdp_key.pem
+cp your_key.pem cdp_key.pem
 
 # Update Caddyfile with your domain
 # Then:

@@ -18,7 +18,8 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "jsdom": "^25.0.0",
-    "puppeteer": "^24.0.0"
+    "puppeteer": "^24.0.0",
+    "@coinbase/x402": "^2.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
