@@ -14,7 +14,7 @@ curl https://serve402.com/services
 
 Returns available endpoints, pricing, and payment info.
 
-### `POST /fetch` — Web Content Extraction ($0.001)
+### `POST /fetch` — Web Content Extraction ($0.005)
 
 Extract readable content from any URL using a headless browser.
 
@@ -42,7 +42,7 @@ curl -X POST https://serve402.com/fetch \
 }
 ```
 
-### `POST /execute` — Code Execution ($0.001)
+### `POST /execute` — Code Execution ($0.005)
 
 Run Python or JavaScript in an isolated sandbox via [E2B](https://e2b.dev).
 
@@ -69,6 +69,46 @@ curl -X POST https://serve402.com/execute \
 }
 ```
 
+### `POST /screenshot` — Screenshot Capture ($0.003)
+
+Take a screenshot of any URL as PNG or JPEG.
+
+```bash
+curl -X POST https://serve402.com/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "fullPage": false, "width": 1280, "height": 720, "format": "png"}'
+```
+
+**Request:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | ✅ | URL to screenshot |
+| `fullPage` | boolean | | Capture full scrollable page (default: false) |
+| `width` | number | | Viewport width in pixels, max 1920 (default: 1280) |
+| `height` | number | | Viewport height in pixels, max 1080 (default: 720) |
+| `format` | string | | `png` (default) or `jpeg` |
+
+**Response:** Binary image data with `Content-Type: image/png` or `image/jpeg`.
+
+### `POST /pdf` — PDF Generation ($0.003)
+
+Generate a PDF from any URL.
+
+```bash
+curl -X POST https://serve402.com/pdf \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "format": "A4", "landscape": false}'
+```
+
+**Request:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | ✅ | URL to convert to PDF |
+| `format` | string | | Paper format: `A4` (default), `Letter`, or `Legal` |
+| `landscape` | boolean | | Landscape orientation (default: false) |
+
+**Response:** Binary PDF data with `Content-Type: application/pdf`.
+
 ## How Payment Works
 
 serve402 uses the [x402 protocol](https://www.x402.org/) — HTTP 402 Payment Required, done right.
@@ -85,12 +125,16 @@ Compatible with any x402 client SDK: [`@x402/fetch`](https://www.npmjs.com/packa
 
 | Endpoint | Price | Backend |
 |----------|-------|---------|
-| `POST /fetch` | $0.001 | Puppeteer + Readability |
-| `POST /execute` | $0.001 | E2B Code Interpreter |
+| `POST /fetch` | $0.005 | Puppeteer + Readability |
+| `POST /execute` | $0.005 | E2B Code Interpreter |
+| `POST /screenshot` | $0.003 | Puppeteer |
+| `POST /pdf` | $0.003 | Puppeteer |
 | `GET /services` | Free | — |
 | `GET /health` | Free | — |
 
 All prices in USDC on Base (L2). Facilitator: CDP (Coinbase) — 1,000 free transactions/month.
+
+**Rate limiting:** 10 requests per minute per IP on all paid endpoints.
 
 ## Self-Hosting
 
@@ -134,13 +178,14 @@ npm run dev   # runs with tsx (hot reload)
 
 ```
 Client → Caddy (TLS) → Express + x402 middleware → Service backends
-                                                     ├── Puppeteer (/fetch)
+                                                     ├── Puppeteer (/fetch, /screenshot, /pdf)
                                                      └── E2B API (/execute)
 ```
 
 - **x402 middleware** handles payment verification and settlement automatically
 - **Bazaar extension** makes endpoints discoverable via the facilitator's `/discovery/resources` API
 - **Caddy** handles automatic TLS certificates
+- **Rate limiting** via express-rate-limit (10 req/min per IP)
 
 ## License
 

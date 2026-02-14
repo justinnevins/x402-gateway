@@ -18,18 +18,30 @@ export const config = {
   e2bApiKey: process.env.E2B_API_KEY || "",
   cdpApiKeyId: process.env.CDP_API_KEY_ID || "",
   cdpApiKeySecret: cdpSecret,
-  version: "0.3.0",
+  version: "0.4.0",
   services: [
     {
       endpoint: "POST /fetch",
       description: "Extract readable content from any URL using headless browser",
-      price: "$0.001",
+      price: "$0.005",
       accepts: [{ scheme: "exact", network, asset: "USDC" }],
     },
     {
       endpoint: "POST /execute",
       description: "Run Python or JavaScript code in an isolated sandbox",
-      price: "$0.001",
+      price: "$0.005",
+      accepts: [{ scheme: "exact", network, asset: "USDC" }],
+    },
+    {
+      endpoint: "POST /screenshot",
+      description: "Take a screenshot of any URL as PNG or JPEG",
+      price: "$0.003",
+      accepts: [{ scheme: "exact", network, asset: "USDC" }],
+    },
+    {
+      endpoint: "POST /pdf",
+      description: "Generate a PDF from any URL",
+      price: "$0.003",
       accepts: [{ scheme: "exact", network, asset: "USDC" }],
     },
   ],

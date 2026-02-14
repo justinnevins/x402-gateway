@@ -1,6 +1,6 @@
 {
   "name": "x402-gateway",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "x402 payment gateway for AI agents",
   "type": "module",
   "scripts": {
@@ -19,7 +19,8 @@
     "express": "^4.21.0",
     "jsdom": "^25.0.0",
     "puppeteer": "^24.0.0",
-    "@coinbase/x402": "^2.1.0"
+    "@coinbase/x402": "^2.1.0",
+    "express-rate-limit": "^7.5.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

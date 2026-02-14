@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { paymentMiddleware } from '@x402/express';
 import { x402ResourceServer, HTTPFacilitatorClient } from '@x402/core/server';
 import { registerExactEvmScheme } from '@x402/evm/exact/server';
@@ -11,10 +12,21 @@ import { createFacilitatorConfig } from '@coinbase/x402';
 import { config } from './config.js';
 import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
+import { takeScreenshot } from './services/screenshot.js';
+import { generatePdf } from './services/pdf.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Rate limiting: 10 requests per minute per IP on paid endpoints
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Use CDP facilitator for mainnet, x402.org for testnet
 const isMainnet = config.network === "eip155:8453";
@@ -37,7 +49,7 @@ app.use(
         accepts: [
           {
             scheme: 'exact',
-            price: '$0.001',
+            price: '$0.005',
             network: config.network as `${string}:${string}`,
             payTo,
           },
@@ -86,7 +98,7 @@ app.use(
         accepts: [
           {
             scheme: 'exact',
-            price: '$0.001',
+            price: '$0.005',
             network: config.network as `${string}:${string}`,
             payTo,
           },
@@ -129,6 +141,86 @@ app.use(
           }),
         },
       },
+      'POST /screenshot': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.003',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'Take a screenshot of any URL as PNG or JPEG',
+        mimeType: 'image/png',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              url: 'https://example.com',
+              fullPage: false,
+              width: 1280,
+              height: 720,
+              format: 'png',
+            },
+            inputSchema: {
+              properties: {
+                url: { type: 'string', description: 'URL to screenshot' },
+                fullPage: { type: 'boolean', description: 'Capture full scrollable page (default: false)' },
+                width: { type: 'number', description: 'Viewport width in pixels (max 1920, default: 1280)' },
+                height: { type: 'number', description: 'Viewport height in pixels (max 1080, default: 720)' },
+                format: { type: 'string', enum: ['png', 'jpeg'], description: 'Image format (default: png)' },
+              },
+              required: ['url'],
+            },
+            bodyType: 'json',
+            output: {
+              example: 'Binary PNG/JPEG image data',
+              schema: {
+                properties: {
+                  binary: { type: 'string', description: 'Binary image data returned with appropriate content-type header' },
+                },
+              },
+            },
+          }),
+        },
+      },
+      'POST /pdf': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.003',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'Generate a PDF from any URL',
+        mimeType: 'application/pdf',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              url: 'https://example.com',
+              format: 'A4',
+              landscape: false,
+            },
+            inputSchema: {
+              properties: {
+                url: { type: 'string', description: 'URL to convert to PDF' },
+                format: { type: 'string', enum: ['A4', 'Letter', 'Legal'], description: 'Paper format (default: A4)' },
+                landscape: { type: 'boolean', description: 'Landscape orientation (default: false)' },
+              },
+              required: ['url'],
+            },
+            bodyType: 'json',
+            output: {
+              example: 'Binary PDF data',
+              schema: {
+                properties: {
+                  binary: { type: 'string', description: 'Binary PDF data returned with application/pdf content-type' },
+                },
+              },
+            },
+          }),
+        },
+      },
     },
     server,
   ),
@@ -151,7 +243,7 @@ app.get('/services', (_req, res) => {
 });
 
 // POST /fetch — web content extraction (payment-gated)
-app.post('/fetch', async (req, res) => {
+app.post('/fetch', apiLimiter, async (req, res) => {
   try {
     const result = await fetchContent(req.body);
     res.json(result);
@@ -162,12 +254,40 @@ app.post('/fetch', async (req, res) => {
 });
 
 // POST /execute — code execution (payment-gated)
-app.post('/execute', async (req, res) => {
+app.post('/execute', apiLimiter, async (req, res) => {
   try {
     const result = await executeCode(req.body);
     res.json(result);
   } catch (err: any) {
     console.error('Execute error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /screenshot — screenshot capture (payment-gated)
+app.post('/screenshot', apiLimiter, async (req, res) => {
+  try {
+    const format = req.body?.format === 'jpeg' ? 'jpeg' : 'png';
+    const contentType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const buffer = await takeScreenshot(req.body);
+    res.set('Content-Type', contentType);
+    res.set('Content-Length', String(buffer.length));
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('Screenshot error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /pdf — PDF generation (payment-gated)
+app.post('/pdf', apiLimiter, async (req, res) => {
+  try {
+    const buffer = await generatePdf(req.body);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Length', String(buffer.length));
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('PDF error:', err.message);
     res.status(400).json({ error: err.message });
   }
 });
