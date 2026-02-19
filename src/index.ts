@@ -349,6 +349,153 @@ app.get('/stats', (_req, res) => {
   }
 });
 
+// ─── Marketplace endpoint (free) ─────────────────────────────────────────────
+app.get('/marketplace', (_req, res) => {
+  const networks: Record<string, any> = {
+    base: {
+      network: config.network,
+      payTo,
+      asset: 'USDC',
+      facilitator: isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl,
+      routePrefix: '/',
+    },
+  };
+  if (xrplPayTo) {
+    networks.xrpl = {
+      network: config.xrplNetwork,
+      payTo: xrplPayTo,
+      asset: config.xrplAsset,
+      facilitator: config.xrplFacilitatorUrl,
+      routePrefix: '/xrpl/',
+    };
+  }
+
+  const services = [
+    {
+      slug: 'fetch',
+      name: 'Web Content Extraction',
+      description: 'Extract readable content from any URL using headless browser',
+      endpoints: {
+        base: {
+          method: 'POST',
+          path: '/fetch',
+          network: config.network,
+          asset: 'USDC',
+          price: '0.005',
+        },
+        xrpl: {
+          method: 'POST',
+          path: '/xrpl/fetch',
+          network: config.xrplNetwork,
+          asset: 'XRP',
+          price: '2500 drops',
+        },
+      },
+      input: {
+        url: 'string (required)',
+        format: 'markdown|text',
+        maxChars: 'number',
+      },
+      output: 'application/json',
+      provider: 'serve402 (built-in)',
+    },
+    {
+      slug: 'execute',
+      name: 'Code Execution',
+      description: 'Run Python or JavaScript code in an isolated sandbox',
+      endpoints: {
+        base: {
+          method: 'POST',
+          path: '/execute',
+          network: config.network,
+          asset: 'USDC',
+          price: '0.005',
+        },
+        xrpl: {
+          method: 'POST',
+          path: '/xrpl/execute',
+          network: config.xrplNetwork,
+          asset: 'XRP',
+          price: '2500 drops',
+        },
+      },
+      input: {
+        language: 'python|javascript (required)',
+        code: 'string (required)',
+        timeout: 'number (max 30s)',
+      },
+      output: 'application/json',
+      provider: 'serve402 (built-in)',
+    },
+    {
+      slug: 'screenshot',
+      name: 'URL Screenshot',
+      description: 'Take a screenshot of any URL as PNG or JPEG',
+      endpoints: {
+        base: {
+          method: 'POST',
+          path: '/screenshot',
+          network: config.network,
+          asset: 'USDC',
+          price: '0.003',
+        },
+        xrpl: {
+          method: 'POST',
+          path: '/xrpl/screenshot',
+          network: config.xrplNetwork,
+          asset: 'XRP',
+          price: '1500 drops',
+        },
+      },
+      input: {
+        url: 'string (required)',
+        fullPage: 'boolean',
+        width: 'number (max 1920)',
+        height: 'number (max 1080)',
+        format: 'png|jpeg',
+      },
+      output: 'image/png or image/jpeg',
+      provider: 'serve402 (built-in)',
+    },
+    {
+      slug: 'pdf',
+      name: 'PDF Generation',
+      description: 'Generate a PDF from any URL',
+      endpoints: {
+        base: {
+          method: 'POST',
+          path: '/pdf',
+          network: config.network,
+          asset: 'USDC',
+          price: '0.003',
+        },
+        xrpl: {
+          method: 'POST',
+          path: '/xrpl/pdf',
+          network: config.xrplNetwork,
+          asset: 'XRP',
+          price: '1500 drops',
+        },
+      },
+      input: {
+        url: 'string (required)',
+        format: 'A4|Letter|Legal',
+        landscape: 'boolean',
+      },
+      output: 'application/pdf',
+      provider: 'serve402 (built-in)',
+    },
+  ];
+
+  res.json({
+    version: config.version,
+    services,
+    networks,
+    totalServices: services.length,
+    docs: 'https://serve402.com/docs',
+  });
+});
+
 // Service discovery — free, not in payment middleware config
 app.get('/services', (_req, res) => {
   const networks: Record<string, any> = {
