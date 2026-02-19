@@ -7,6 +7,7 @@ services:
       - .env
     volumes:
       - ./cdp_key.pem:/app/cdp_key.pem:ro
+      - gateway_data:/app/data
     restart: unless-stopped
     deploy:
       resources:
@@ -29,3 +30,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  gateway_data:

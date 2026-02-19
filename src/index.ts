@@ -15,6 +15,10 @@ import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
 import { takeScreenshot } from './services/screenshot.js';
 import { generatePdf } from './services/pdf.js';
+import { initDb, logRequest } from './services/logger.js';
+
+// ─── Init DB ─────────────────────────────────────────────────────────────────
+initDb();
 
 const app = express();
 app.use(cors());
@@ -41,6 +45,61 @@ registerExactEvmScheme(server);
 server.registerExtension(bazaarResourceServerExtension);
 
 const payTo = config.walletAddress;
+
+// ─── Request logging middleware ───────────────────────────────────────────────
+// Attach a finish listener early so we can log all paid request outcomes.
+// Prices are fixed per endpoint, so we derive amount deterministically.
+
+const PAID_ENDPOINTS = new Set([
+  '/fetch', '/execute', '/screenshot', '/pdf',
+  '/xrpl/fetch', '/xrpl/execute', '/xrpl/screenshot', '/xrpl/pdf',
+]);
+
+function amountForEndpoint(path: string, chain: 'base' | 'xrpl'): string {
+  const base = path.replace(/^\/xrpl/, '');
+  if (base === '/fetch' || base === '/execute') {
+    return chain === 'xrpl' ? '2500' : '0.005000';
+  }
+  // screenshot / pdf
+  return chain === 'xrpl' ? '1500' : '0.003000';
+}
+
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (!PAID_ENDPOINTS.has(req.path)) return;
+
+    // Only log when payment was accepted (2xx)
+    if (res.statusCode < 200 || res.statusCode >= 300) return;
+
+    const chain: 'base' | 'xrpl' = req.path.startsWith('/xrpl/') ? 'xrpl' : 'base';
+
+    // x402-xrpl and @x402/express both set res.locals.x402 with payer
+    const x402 = (res.locals as Record<string, any>).x402 as
+      | { payer?: string | null; paymentRequirements?: { amount?: string } }
+      | undefined;
+
+    const wallet =
+      x402?.payer ??
+      (req.headers['payment-signature'] as string | undefined) ??
+      'unknown';
+
+    // Use the amount from payment requirements if available, else derive from endpoint
+    const amount =
+      (x402?.paymentRequirements?.amount) ??
+      amountForEndpoint(req.path, chain);
+
+    logRequest({
+      timestamp: new Date().toISOString(),
+      endpoint: req.path,
+      chain,
+      wallet,
+      amount,
+      status: res.statusCode,
+    });
+  });
+
+  next();
+});
 
 // Apply payment middleware — protects routes listed here
 app.use(

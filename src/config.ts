@@ -23,7 +23,7 @@ export const config = {
   e2bApiKey: process.env.E2B_API_KEY || "",
   cdpApiKeyId: process.env.CDP_API_KEY_ID || "",
   cdpApiKeySecret: cdpSecret,
-  version: "0.5.0",
+  version: "0.6.0",
   services: [
     {
       endpoint: "POST /fetch",
