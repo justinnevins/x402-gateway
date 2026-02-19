@@ -67,6 +67,7 @@ RUN npm install --omit=dev
 RUN apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/dist ./dist
+COPY src/public ./src/public
 
 EXPOSE 3402
 

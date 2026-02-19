@@ -24,6 +24,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ─── Static landing page (served before any payment middleware) ───────────
+app.use(express.static('src/public'));
+
 // Rate limiting: 10 requests per minute per IP on paid endpoints
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
