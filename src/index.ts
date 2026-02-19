@@ -15,7 +15,7 @@ import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
 import { takeScreenshot } from './services/screenshot.js';
 import { generatePdf } from './services/pdf.js';
-import { initDb, logRequest } from './services/logger.js';
+import { initDb, logRequest, getStats } from './services/logger.js';
 
 // ─── Init DB ─────────────────────────────────────────────────────────────────
 initDb();
@@ -337,6 +337,16 @@ if (xrplPayTo) {
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: config.version });
+});
+
+// ─── Stats endpoint (free) ───────────────────────────────────────────────────
+app.get('/stats', (_req, res) => {
+  try {
+    res.json(getStats());
+  } catch (err: any) {
+    console.error('Stats error:', err.message);
+    res.status(500).json({ error: 'Failed to retrieve stats' });
+  }
 });
 
 // Service discovery — free, not in payment middleware config
