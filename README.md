@@ -1,8 +1,17 @@
 # serve402
 
-An x402 payment gateway for AI agents. Pay-per-request with USDC on Base — no accounts, no API keys, no SDKs. Just HTTP + crypto micropayments. Built on the [x402 protocol](https://www.x402.org/) by Coinbase.
+An x402 payment gateway for AI agents. Pay-per-request with **USDC on Base** or **XRP on the XRP Ledger** — no accounts, no API keys, no SDKs. Just HTTP + crypto micropayments. Built on the [x402 protocol](https://www.x402.org/).
 
 **Live at [serve402.com](https://serve402.com)**
+
+## Supported Networks
+
+| Network | Chain | Asset | Facilitator | Routes |
+|---------|-------|-------|-------------|--------|
+| `eip155:8453` | Base (L2) | USDC | CDP (Coinbase) | `POST /fetch`, `/execute`, `/screenshot`, `/pdf` |
+| `xrpl:0` | XRP Ledger | XRP | [t54.ai](https://xrpl-x402.t54.ai/) | `POST /xrpl/fetch`, `/xrpl/execute`, `/xrpl/screenshot`, `/xrpl/pdf` |
+
+Agents choose which chain to pay on. Same endpoints, same functionality — just different payment rails.
 
 ## Endpoints
 
@@ -12,9 +21,9 @@ An x402 payment gateway for AI agents. Pay-per-request with USDC on Base — no 
 curl https://serve402.com/services
 ```
 
-Returns available endpoints, pricing, and payment info.
+Returns available endpoints, pricing, payment info, and supported networks.
 
-### `POST /fetch` — Web Content Extraction ($0.005)
+### `POST /fetch` or `POST /xrpl/fetch` — Web Content Extraction
 
 Extract readable content from any URL using a headless browser.
 
@@ -42,7 +51,7 @@ curl -X POST https://serve402.com/fetch \
 }
 ```
 
-### `POST /execute` — Code Execution ($0.005)
+### `POST /execute` or `POST /xrpl/execute` — Code Execution
 
 Run Python or JavaScript in an isolated sandbox via [E2B](https://e2b.dev).
 
@@ -69,15 +78,9 @@ curl -X POST https://serve402.com/execute \
 }
 ```
 
-### `POST /screenshot` — Screenshot Capture ($0.003)
+### `POST /screenshot` or `POST /xrpl/screenshot` — Screenshot Capture
 
 Take a screenshot of any URL as PNG or JPEG.
-
-```bash
-curl -X POST https://serve402.com/screenshot \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "fullPage": false, "width": 1280, "height": 720, "format": "png"}'
-```
 
 **Request:**
 | Field | Type | Required | Description |
@@ -90,15 +93,9 @@ curl -X POST https://serve402.com/screenshot \
 
 **Response:** Binary image data with `Content-Type: image/png` or `image/jpeg`.
 
-### `POST /pdf` — PDF Generation ($0.003)
+### `POST /pdf` or `POST /xrpl/pdf` — PDF Generation
 
 Generate a PDF from any URL.
-
-```bash
-curl -X POST https://serve402.com/pdf \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "format": "A4", "landscape": false}'
-```
 
 **Request:**
 | Field | Type | Required | Description |
@@ -114,25 +111,26 @@ curl -X POST https://serve402.com/pdf \
 serve402 uses the [x402 protocol](https://www.x402.org/) — HTTP 402 Payment Required, done right.
 
 1. **Request without payment** → server returns `402` with payment requirements (price, network, wallet)
-2. **Agent signs a USDC payment** using its wallet
-3. **Request with `X-PAYMENT` header** → server verifies payment via facilitator, executes request, settles payment
+2. **Agent signs a payment** using its wallet (USDC on Base or XRP on XRPL)
+3. **Request with `PAYMENT-SIGNATURE` header** → server verifies payment via facilitator, executes request, settles payment
 
-No accounts. No API keys. Just a wallet with USDC on Base.
+No accounts. No API keys. Just a wallet.
 
-Compatible with any x402 client SDK: [`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch), [`x402-fetch`](https://pypi.org/project/x402-fetch/), or roll your own.
+### Client SDKs
+
+- **Base/EVM:** [`@x402/fetch`](https://www.npmjs.com/package/@x402/fetch), [`x402-fetch`](https://pypi.org/project/x402-fetch/)
+- **XRPL:** [`x402-xrpl`](https://www.npmjs.com/package/x402-xrpl) (includes `x402Fetch` client)
 
 ## Pricing
 
-| Endpoint | Price | Backend |
-|----------|-------|---------|
-| `POST /fetch` | $0.005 | Puppeteer + Readability |
-| `POST /execute` | $0.005 | E2B Code Interpreter |
-| `POST /screenshot` | $0.003 | Puppeteer |
-| `POST /pdf` | $0.003 | Puppeteer |
-| `GET /services` | Free | — |
-| `GET /health` | Free | — |
-
-All prices in USDC on Base (L2). Facilitator: CDP (Coinbase) — 1,000 free transactions/month.
+| Endpoint | USD Price | Base (USDC) | XRPL (XRP drops) |
+|----------|-----------|-------------|-------------------|
+| `/fetch` | ~$0.005 | 0.005 USDC | 2,500 drops |
+| `/execute` | ~$0.005 | 0.005 USDC | 2,500 drops |
+| `/screenshot` | ~$0.003 | 0.003 USDC | 1,500 drops |
+| `/pdf` | ~$0.003 | 0.003 USDC | 1,500 drops |
+| `/services` | Free | — | — |
+| `/health` | Free | — | — |
 
 **Rate limiting:** 10 requests per minute per IP on all paid endpoints.
 
@@ -143,7 +141,7 @@ All prices in USDC on Base (L2). Facilitator: CDP (Coinbase) — 1,000 free tran
 - Node.js 22+
 - Docker & Docker Compose
 - A domain pointed to your server
-- A wallet address to receive USDC payments
+- Wallet addresses (EVM for Base, XRPL for XRP)
 - An [E2B](https://e2b.dev) API key (free tier available)
 
 ### Setup
@@ -153,17 +151,17 @@ git clone https://github.com/justinnevins/x402-gateway.git
 cd x402-gateway
 
 cp .env.example .env
-# Edit .env with your values:
+# Edit .env with your values
+
+# For Base payments:
 #   WALLET_ADDRESS=0xYour...
-#   E2B_API_KEY=your_key
 #   CDP_API_KEY_ID=organizations/... (from https://cdp.coinbase.com)
+#   openssl pkcs8 -topk8 -nocrypt -in your_key.pem -out cdp_key.pem
 
-# Add your CDP PEM key (MUST be PKCS8 format):
-# openssl pkcs8 -topk8 -nocrypt -in your_key.pem -out cdp_key.pem
-cp your_key.pem cdp_key.pem
+# For XRPL payments:
+#   XRPL_WALLET_ADDRESS=rYour...
+#   (no API keys needed — uses t54.ai facilitator)
 
-# Update Caddyfile with your domain
-# Then:
 docker compose up -d --build
 ```
 
@@ -177,13 +175,17 @@ npm run dev   # runs with tsx (hot reload)
 ## Architecture
 
 ```
-Client → Caddy (TLS) → Express + x402 middleware → Service backends
-                                                     ├── Puppeteer (/fetch, /screenshot, /pdf)
-                                                     └── E2B API (/execute)
+Client → Caddy (TLS) → Express → Payment Middleware → Service Backends
+                          │                              ├── Puppeteer (/fetch, /screenshot, /pdf)
+                          │                              └── E2B API (/execute)
+                          ├── @x402/express (Base/EVM routes)
+                          │     └── CDP Facilitator (verify + settle)
+                          └── x402-xrpl/express (XRPL routes)
+                                └── t54.ai Facilitator (verify + settle)
 ```
 
-- **x402 middleware** handles payment verification and settlement automatically
-- **Bazaar extension** makes endpoints discoverable via the facilitator's `/discovery/resources` API
+- **Dual payment middleware** — Base and XRPL handled independently
+- **Bazaar extension** makes Base endpoints discoverable via CDP's `/discovery/resources` API
 - **Caddy** handles automatic TLS certificates
 - **Rate limiting** via express-rate-limit (10 req/min per IP)
 

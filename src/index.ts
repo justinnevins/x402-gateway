@@ -9,6 +9,7 @@ import {
   declareDiscoveryExtension,
 } from '@x402/extensions/bazaar';
 import { createFacilitatorConfig } from '@coinbase/x402';
+import { requirePayment as requireXrplPayment } from 'x402-xrpl/express';
 import { config } from './config.js';
 import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
@@ -226,6 +227,54 @@ app.use(
   ),
 );
 
+// --- XRPL Payment Routes ---
+// XRP prices in drops (1 XRP = 1,000,000 drops)
+// ~$0.005 ≈ 2500 drops, ~$0.003 ≈ 1500 drops at ~$2/XRP
+const xrplPayTo = config.xrplWalletAddress;
+const xrplCommonOpts = {
+  network: config.xrplNetwork,
+  asset: config.xrplAsset,
+  facilitatorUrl: config.xrplFacilitatorUrl,
+  payToAddress: xrplPayTo,
+};
+
+if (xrplPayTo) {
+  // XRPL-protected routes (same endpoints, XRPL payments)
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/fetch', price: '2500', resource: 'serve402:fetch', description: 'Extract readable content from any URL' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/execute', price: '2500', resource: 'serve402:execute', description: 'Run code in an isolated sandbox' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/screenshot', price: '1500', resource: 'serve402:screenshot', description: 'Take a screenshot of any URL' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' }));
+
+  // Wire XRPL routes to the same service handlers
+  app.post('/xrpl/fetch', apiLimiter, async (req, res) => {
+    try { res.json(await fetchContent(req.body)); }
+    catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/execute', apiLimiter, async (req, res) => {
+    try { res.json(await executeCode(req.body)); }
+    catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/screenshot', apiLimiter, async (req, res) => {
+    try {
+      const format = req.body?.format === 'jpeg' ? 'jpeg' : 'png';
+      const buffer = await takeScreenshot(req.body);
+      res.set('Content-Type', format === 'jpeg' ? 'image/jpeg' : 'image/png');
+      res.set('Content-Length', String(buffer.length));
+      res.send(buffer);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/pdf', apiLimiter, async (req, res) => {
+    try {
+      const buffer = await generatePdf(req.body);
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Length', String(buffer.length));
+      res.send(buffer);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  console.log('XRPL payments enabled on /xrpl/* routes');
+}
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: config.version });
@@ -233,12 +282,28 @@ app.get('/health', (_req, res) => {
 
 // Service discovery — free, not in payment middleware config
 app.get('/services', (_req, res) => {
+  const networks: Record<string, any> = {
+    base: {
+      network: config.network,
+      payTo,
+      asset: 'USDC',
+      facilitator: isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl,
+      routePrefix: '/',
+    },
+  };
+  if (xrplPayTo) {
+    networks.xrpl = {
+      network: config.xrplNetwork,
+      payTo: xrplPayTo,
+      asset: config.xrplAsset,
+      facilitator: config.xrplFacilitatorUrl,
+      routePrefix: '/xrpl/',
+    };
+  }
   res.json({
     services: config.services,
     version: config.version,
-    payTo,
-    network: config.network,
-    facilitator: isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl,
+    networks,
   });
 });
 
@@ -293,8 +358,9 @@ app.post('/pdf', apiLimiter, async (req, res) => {
 });
 
 app.listen(config.port, '0.0.0.0', () => {
-  console.log(`x402 Gateway listening on port ${config.port}`);
-  console.log(`Network: ${config.network}`);
-  console.log(`Facilitator: ${isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl}`);
-  console.log(`Wallet: ${payTo.substring(0, 10)}...`);
+  console.log(`x402 Gateway v${config.version} listening on port ${config.port}`);
+  console.log(`[Base]  Network: ${config.network} | Facilitator: ${isMainnet ? 'CDP (Coinbase)' : config.facilitatorUrl} | Wallet: ${payTo.substring(0, 10)}...`);
+  if (xrplPayTo) {
+    console.log(`[XRPL] Network: ${config.xrplNetwork} | Facilitator: ${config.xrplFacilitatorUrl} | Wallet: ${xrplPayTo.substring(0, 10)}...`);
+  }
 });
