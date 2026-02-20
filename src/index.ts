@@ -24,11 +24,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── Static landing page (served before any payment middleware) ───────────
-app.use(express.static('src/public'));
-app.get('/', (_req, res) => {
-  res.sendFile('index.html', { root: 'src/public' });
-});
+// ─── Landing page (if src/public exists) ─────────────────────────────────
+// In production, the serve402 platform layer provides the landing page.
+// For self-hosted instances, create src/public/index.html to serve a custom page.
+import { existsSync } from 'fs';
+if (existsSync('src/public')) {
+  app.use(express.static('src/public'));
+  app.get('/', (_req, res) => {
+    res.sendFile('index.html', { root: 'src/public' });
+  });
+}
 
 // Rate limiting: 10 requests per minute per IP on paid endpoints
 const apiLimiter = rateLimit({

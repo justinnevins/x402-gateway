@@ -67,7 +67,8 @@ RUN npm install --omit=dev
 RUN apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/dist ./dist
-COPY src/public ./src/public
+# Platform layer (landing page) is optional — provided by serve402 private repo in production
+RUN mkdir -p src/public
 
 EXPOSE 3402
 
