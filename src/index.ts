@@ -15,7 +15,9 @@ import { fetchContent } from './services/fetch.js';
 import { executeCode } from './services/execute.js';
 import { takeScreenshot } from './services/screenshot.js';
 import { generatePdf } from './services/pdf.js';
-import { initDb, logRequest, getStats } from './services/logger.js';
+import { searchWeb } from './services/search.js';
+import { queryXrpl } from './services/xrpl-query.js';
+import { initDb, logRequest, getStats, getMarketplace } from './services/logger.js';
 
 // ─── Init DB ─────────────────────────────────────────────────────────────────
 initDb();
@@ -62,14 +64,21 @@ const payTo = config.walletAddress;
 // Prices are fixed per endpoint, so we derive amount deterministically.
 
 const PAID_ENDPOINTS = new Set([
-  '/fetch', '/execute', '/screenshot', '/pdf',
+  '/fetch', '/execute', '/screenshot', '/pdf', '/search', '/xrpl-query',
   '/xrpl/fetch', '/xrpl/execute', '/xrpl/screenshot', '/xrpl/pdf',
+  '/xrpl/search', '/xrpl/xrpl-query',
 ]);
 
 function amountForEndpoint(path: string, chain: 'base' | 'xrpl'): string {
   const base = path.replace(/^\/xrpl/, '');
   if (base === '/fetch' || base === '/execute') {
     return chain === 'xrpl' ? '2500' : '0.005000';
+  }
+  if (base === '/search') {
+    return chain === 'xrpl' ? '2000' : '0.004000';
+  }
+  if (base === '/xrpl-query') {
+    return chain === 'xrpl' ? '1000' : '0.002000';
   }
   // screenshot / pdf
   return chain === 'xrpl' ? '1500' : '0.003000';
@@ -292,6 +301,102 @@ app.use(
           }),
         },
       },
+      'POST /search': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.004',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'Search the web using Brave Search API',
+        mimeType: 'application/json',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              query: 'latest AI research',
+              count: 5,
+              freshness: 'week',
+            },
+            inputSchema: {
+              properties: {
+                query: { type: 'string', description: 'Search query string' },
+                count: { type: 'number', description: 'Number of results to return (max 20, default 5)' },
+                freshness: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Filter results by age' },
+              },
+              required: ['query'],
+            },
+            bodyType: 'json',
+            output: {
+              example: {
+                results: [{ title: 'Example Result', url: 'https://example.com', snippet: 'A web result.', publishedDate: '2 days ago' }],
+                query: 'latest AI research',
+                count: 1,
+              },
+              schema: {
+                properties: {
+                  results: {
+                    type: 'array',
+                    items: {
+                      properties: {
+                        title: { type: 'string' },
+                        url: { type: 'string' },
+                        snippet: { type: 'string' },
+                        publishedDate: { type: 'string' },
+                      },
+                      required: ['title', 'url', 'snippet'],
+                    },
+                  },
+                  query: { type: 'string' },
+                  count: { type: 'number' },
+                },
+                required: ['results', 'query', 'count'],
+              },
+            },
+          }),
+        },
+      },
+      'POST /xrpl-query': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.002',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'Query the XRPL ledger via a local node (read-only)',
+        mimeType: 'application/json',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              command: 'account_info',
+              params: { account: 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh' },
+            },
+            inputSchema: {
+              properties: {
+                command: {
+                  type: 'string',
+                  enum: ['account_info', 'tx', 'ledger', 'account_lines', 'account_offers', 'book_offers', 'gateway_balances', 'account_tx'],
+                  description: 'XRPL read-only command',
+                },
+                params: { type: 'object', description: 'Command parameters (merged into request body)' },
+              },
+              required: ['command'],
+            },
+            bodyType: 'json',
+            output: {
+              example: { result: { account_data: {}, status: 'success', validated: true } },
+              schema: {
+                properties: {
+                  result: { type: 'object', description: 'Raw XRPL node response' },
+                },
+              },
+            },
+          }),
+        },
+      },
     },
     server,
   ),
@@ -314,6 +419,8 @@ if (xrplPayTo) {
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/execute', price: '2500', resource: 'serve402:execute', description: 'Run code in an isolated sandbox' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/screenshot', price: '1500', resource: 'serve402:screenshot', description: 'Take a screenshot of any URL' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '2000', resource: 'serve402:search', description: 'Search the web using Brave Search API' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/xrpl-query', price: '1000', resource: 'serve402:xrpl-query', description: 'Query the XRPL ledger via a local node (read-only)' }));
 
   // Wire XRPL routes to the same service handlers
   app.post('/xrpl/fetch', apiLimiter, async (req, res) => {
@@ -340,6 +447,20 @@ if (xrplPayTo) {
       res.set('Content-Length', String(buffer.length));
       res.send(buffer);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/search', apiLimiter, async (req, res) => {
+    try {
+      res.json(await searchWeb(req.body));
+    } catch (err: any) {
+      if ((err as any).code === 'SEARCH_NOT_CONFIGURED') {
+        return res.status(503).json({ error: 'search endpoint not configured' });
+      }
+      res.status(400).json({ error: err.message });
+    }
+  });
+  app.post('/xrpl/xrpl-query', apiLimiter, async (req, res) => {
+    try { res.json(await queryXrpl(req.body)); }
+    catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   console.log('XRPL payments enabled on /xrpl/* routes');
@@ -381,122 +502,7 @@ app.get('/marketplace', (_req, res) => {
     };
   }
 
-  const services = [
-    {
-      slug: 'fetch',
-      name: 'Web Content Extraction',
-      description: 'Extract readable content from any URL using headless browser',
-      endpoints: {
-        base: {
-          method: 'POST',
-          path: '/fetch',
-          network: config.network,
-          asset: 'USDC',
-          price: '0.005',
-        },
-        xrpl: {
-          method: 'POST',
-          path: '/xrpl/fetch',
-          network: config.xrplNetwork,
-          asset: 'XRP',
-          price: '2500 drops',
-        },
-      },
-      input: {
-        url: 'string (required)',
-        format: 'markdown|text',
-        maxChars: 'number',
-      },
-      output: 'application/json',
-      provider: 'serve402 (built-in)',
-    },
-    {
-      slug: 'execute',
-      name: 'Code Execution',
-      description: 'Run Python or JavaScript code in an isolated sandbox',
-      endpoints: {
-        base: {
-          method: 'POST',
-          path: '/execute',
-          network: config.network,
-          asset: 'USDC',
-          price: '0.005',
-        },
-        xrpl: {
-          method: 'POST',
-          path: '/xrpl/execute',
-          network: config.xrplNetwork,
-          asset: 'XRP',
-          price: '2500 drops',
-        },
-      },
-      input: {
-        language: 'python|javascript (required)',
-        code: 'string (required)',
-        timeout: 'number (max 30s)',
-      },
-      output: 'application/json',
-      provider: 'serve402 (built-in)',
-    },
-    {
-      slug: 'screenshot',
-      name: 'URL Screenshot',
-      description: 'Take a screenshot of any URL as PNG or JPEG',
-      endpoints: {
-        base: {
-          method: 'POST',
-          path: '/screenshot',
-          network: config.network,
-          asset: 'USDC',
-          price: '0.003',
-        },
-        xrpl: {
-          method: 'POST',
-          path: '/xrpl/screenshot',
-          network: config.xrplNetwork,
-          asset: 'XRP',
-          price: '1500 drops',
-        },
-      },
-      input: {
-        url: 'string (required)',
-        fullPage: 'boolean',
-        width: 'number (max 1920)',
-        height: 'number (max 1080)',
-        format: 'png|jpeg',
-      },
-      output: 'image/png or image/jpeg',
-      provider: 'serve402 (built-in)',
-    },
-    {
-      slug: 'pdf',
-      name: 'PDF Generation',
-      description: 'Generate a PDF from any URL',
-      endpoints: {
-        base: {
-          method: 'POST',
-          path: '/pdf',
-          network: config.network,
-          asset: 'USDC',
-          price: '0.003',
-        },
-        xrpl: {
-          method: 'POST',
-          path: '/xrpl/pdf',
-          network: config.xrplNetwork,
-          asset: 'XRP',
-          price: '1500 drops',
-        },
-      },
-      input: {
-        url: 'string (required)',
-        format: 'A4|Letter|Legal',
-        landscape: 'boolean',
-      },
-      output: 'application/pdf',
-      provider: 'serve402 (built-in)',
-    },
-  ];
+  const services = getMarketplace({ network: config.network, xrplNetwork: config.xrplNetwork });
 
   res.json({
     version: config.version,
@@ -580,6 +586,31 @@ app.post('/pdf', apiLimiter, async (req, res) => {
     res.send(buffer);
   } catch (err: any) {
     console.error('PDF error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /search — web search via Brave (payment-gated)
+app.post('/search', apiLimiter, async (req, res) => {
+  try {
+    const result = await searchWeb(req.body);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Search error:', err.message);
+    if ((err as any).code === 'SEARCH_NOT_CONFIGURED') {
+      return res.status(503).json({ error: 'search endpoint not configured' });
+    }
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /xrpl-query — XRPL ledger query (payment-gated)
+app.post('/xrpl-query', apiLimiter, async (req, res) => {
+  try {
+    const result = await queryXrpl(req.body);
+    res.json(result);
+  } catch (err: any) {
+    console.error('XRPL query error:', err.message);
     res.status(400).json({ error: err.message });
   }
 });
