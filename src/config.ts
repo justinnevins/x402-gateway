@@ -23,7 +23,7 @@ export const config = {
   e2bApiKey: process.env.E2B_API_KEY || "",
   cdpApiKeyId: process.env.CDP_API_KEY_ID || "",
   cdpApiKeySecret: cdpSecret,
-  version: "0.6.0",
+  version: "0.7.0",
   services: [
     {
       endpoint: "POST /fetch",
@@ -56,6 +56,24 @@ export const config = {
       endpoint: "POST /pdf",
       description: "Generate a PDF from any URL",
       price: "$0.003",
+      accepts: [
+        { scheme: "exact", network, asset: "USDC" },
+        { scheme: "exact", network: xrplNetwork, asset: "XRP" },
+      ],
+    },
+    {
+      endpoint: "POST /search",
+      description: "Search the web using Brave Search API",
+      price: "$0.004",
+      accepts: [
+        { scheme: "exact", network, asset: "USDC" },
+        { scheme: "exact", network: xrplNetwork, asset: "XRP" },
+      ],
+    },
+    {
+      endpoint: "POST /xrpl-query",
+      description: "Query the XRPL ledger via a local node (read-only)",
+      price: "$0.002",
       accepts: [
         { scheme: "exact", network, asset: "USDC" },
         { scheme: "exact", network: xrplNetwork, asset: "XRP" },
