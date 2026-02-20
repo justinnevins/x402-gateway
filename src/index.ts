@@ -17,6 +17,8 @@ import { takeScreenshot } from './services/screenshot.js';
 import { generatePdf } from './services/pdf.js';
 import { searchWeb } from './services/search.js';
 import { queryXrpl } from './services/xrpl-query.js';
+import { queryDns } from './services/dns.js';
+import { inspectHeaders } from './services/headers.js';
 import { initDb, logRequest, getStats, getMarketplace } from './services/logger.js';
 
 // ─── Init DB ─────────────────────────────────────────────────────────────────
@@ -64,9 +66,9 @@ const payTo = config.walletAddress;
 // Prices are fixed per endpoint, so we derive amount deterministically.
 
 const PAID_ENDPOINTS = new Set([
-  '/fetch', '/execute', '/screenshot', '/pdf', '/search', '/xrpl-query',
+  '/fetch', '/execute', '/screenshot', '/pdf', '/search', '/xrpl-query', '/dns', '/headers',
   '/xrpl/fetch', '/xrpl/execute', '/xrpl/screenshot', '/xrpl/pdf',
-  '/xrpl/search', '/xrpl/xrpl-query',
+  '/xrpl/search', '/xrpl/xrpl-query', '/xrpl/dns', '/xrpl/headers',
 ]);
 
 function amountForEndpoint(path: string, chain: 'base' | 'xrpl'): string {
@@ -79,6 +81,9 @@ function amountForEndpoint(path: string, chain: 'base' | 'xrpl'): string {
   }
   if (base === '/xrpl-query') {
     return chain === 'xrpl' ? '1000' : '0.002000';
+  }
+  if (base === '/dns' || base === '/headers') {
+    return chain === 'xrpl' ? '500' : '0.001000';
   }
   // screenshot / pdf
   return chain === 'xrpl' ? '1500' : '0.003000';
@@ -397,6 +402,106 @@ app.use(
           }),
         },
       },
+      'POST /dns': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.001',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'DNS record lookup for any domain',
+        mimeType: 'application/json',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              domain: 'example.com',
+              type: 'A',
+            },
+            inputSchema: {
+              properties: {
+                domain: { type: 'string', description: 'Domain name to look up' },
+                type: { type: 'string', enum: ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA', 'SRV', 'PTR'], description: 'DNS record type (default: A)' },
+              },
+              required: ['domain'],
+            },
+            bodyType: 'json',
+            output: {
+              example: {
+                domain: 'example.com',
+                type: 'A',
+                records: [{ address: '93.184.216.34', ttl: 3600 }],
+                queriedAt: '2026-02-20T09:00:00Z',
+              },
+              schema: {
+                properties: {
+                  domain: { type: 'string' },
+                  type: { type: 'string' },
+                  records: { type: 'array' },
+                  queriedAt: { type: 'string' },
+                },
+                required: ['domain', 'type', 'records', 'queriedAt'],
+              },
+            },
+          }),
+        },
+      },
+      'POST /headers': {
+        accepts: [
+          {
+            scheme: 'exact',
+            price: '$0.001',
+            network: config.network as `${string}:${string}`,
+            payTo,
+          },
+        ],
+        description: 'Inspect HTTP response headers with security analysis and redirect tracking',
+        mimeType: 'application/json',
+        extensions: {
+          ...declareDiscoveryExtension({
+            input: {
+              url: 'https://example.com',
+              method: 'HEAD',
+              followRedirects: true,
+            },
+            inputSchema: {
+              properties: {
+                url: { type: 'string', description: 'URL to inspect' },
+                method: { type: 'string', enum: ['GET', 'HEAD'], description: 'HTTP method (default: HEAD)' },
+                followRedirects: { type: 'boolean', description: 'Follow redirects and capture chain (default: true)' },
+              },
+              required: ['url'],
+            },
+            bodyType: 'json',
+            output: {
+              example: {
+                url: 'https://example.com',
+                finalUrl: 'https://example.com',
+                statusCode: 200,
+                headers: { 'content-type': 'text/html', 'strict-transport-security': 'max-age=31536000' },
+                redirectChain: [],
+                security: { hsts: true, csp: false, xFrameOptions: 'DENY', xContentTypeOptions: true, referrerPolicy: 'strict-origin', permissionsPolicy: false },
+                server: 'ECS (dcb/7F84)',
+              },
+              schema: {
+                properties: {
+                  url: { type: 'string' },
+                  finalUrl: { type: 'string' },
+                  statusCode: { type: 'number' },
+                  headers: { type: 'object' },
+                  redirectChain: { type: 'array' },
+                  security: { type: 'object' },
+                  server: { type: 'string' },
+                  contentType: { type: 'string' },
+                  inspectedAt: { type: 'string' },
+                },
+                required: ['url', 'finalUrl', 'statusCode', 'headers', 'security', 'inspectedAt'],
+              },
+            },
+          }),
+        },
+      },
     },
     server,
   ),
@@ -421,6 +526,8 @@ if (xrplPayTo) {
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '2000', resource: 'serve402:search', description: 'Search the web using Brave Search API' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/xrpl-query', price: '1000', resource: 'serve402:xrpl-query', description: 'Query the XRPL ledger via a local node (read-only)' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/dns', price: '500', resource: 'serve402:dns', description: 'DNS record lookup' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/headers', price: '500', resource: 'serve402:headers', description: 'Inspect HTTP response headers' }));
 
   // Wire XRPL routes to the same service handlers
   app.post('/xrpl/fetch', apiLimiter, async (req, res) => {
@@ -460,6 +567,14 @@ if (xrplPayTo) {
   });
   app.post('/xrpl/xrpl-query', apiLimiter, async (req, res) => {
     try { res.json(await queryXrpl(req.body)); }
+    catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/dns', apiLimiter, async (req, res) => {
+    try { res.json(await queryDns(req.body)); }
+    catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/xrpl/headers', apiLimiter, async (req, res) => {
+    try { res.json(await inspectHeaders(req.body)); }
     catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
@@ -611,6 +726,28 @@ app.post('/xrpl-query', apiLimiter, async (req, res) => {
     res.json(result);
   } catch (err: any) {
     console.error('XRPL query error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /dns — DNS record lookup (payment-gated)
+app.post('/dns', apiLimiter, async (req, res) => {
+  try {
+    const result = await queryDns(req.body);
+    res.json(result);
+  } catch (err: any) {
+    console.error('DNS error:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /headers — HTTP header inspection (payment-gated)
+app.post('/headers', apiLimiter, async (req, res) => {
+  try {
+    const result = await inspectHeaders(req.body);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Headers error:', err.message);
     res.status(400).json({ error: err.message });
   }
 });
