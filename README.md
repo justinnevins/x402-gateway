@@ -8,8 +8,8 @@ An x402 payment gateway for AI agents. Pay-per-request with **USDC on Base** or 
 
 | Network | Chain | Asset | Facilitator | Routes |
 |---------|-------|-------|-------------|--------|
-| `eip155:8453` | Base (L2) | USDC | CDP (Coinbase) | `POST /fetch`, `/execute`, `/screenshot`, `/pdf` |
-| `xrpl:0` | XRP Ledger | XRP | [t54.ai](https://xrpl-x402.t54.ai/) | `POST /xrpl/fetch`, `/xrpl/execute`, `/xrpl/screenshot`, `/xrpl/pdf` |
+| `eip155:8453` | Base (L2) | USDC | CDP (Coinbase) | `POST /fetch`, `/execute`, `/screenshot`, `/pdf`, `/search`, `/xrpl-query`, `/dns`, `/headers` |
+| `xrpl:0` | XRP Ledger | XRP | [t54.ai](https://xrpl-x402.t54.ai/) | `POST /xrpl/fetch`, `/xrpl/execute`, `/xrpl/screenshot`, `/xrpl/pdf`, `/xrpl/search`, `/xrpl/xrpl-query`, `/xrpl/dns`, `/xrpl/headers` |
 
 Agents choose which chain to pay on. Same endpoints, same functionality — just different payment rails.
 
@@ -106,6 +106,66 @@ Generate a PDF from any URL.
 
 **Response:** Binary PDF data with `Content-Type: application/pdf`.
 
+### `POST /dns` or `POST /xrpl/dns` — DNS Record Lookup
+
+Query DNS records for any domain.
+
+```bash
+curl -X POST https://serve402.com/dns \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com", "type": "MX"}'
+```
+
+**Request:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `domain` | string | ✅ | Domain name to look up |
+| `type` | string | | Record type: `A` (default), `AAAA`, `MX`, `TXT`, `NS`, `CNAME`, `SOA`, `SRV`, `PTR` |
+
+**Response:**
+```json
+{
+  "domain": "example.com",
+  "type": "MX",
+  "records": [{ "exchange": "mail.example.com", "priority": 10 }],
+  "queriedAt": "2026-02-20T09:00:00Z"
+}
+```
+
+### `POST /headers` or `POST /xrpl/headers` — HTTP Header Inspection
+
+Inspect HTTP response headers with security analysis and redirect chain tracking.
+
+```bash
+curl -X POST https://serve402.com/headers \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+**Request:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | ✅ | URL to inspect |
+| `method` | string | | `HEAD` (default) or `GET` |
+| `followRedirects` | boolean | | Follow redirects and capture chain (default: true) |
+
+**Response:**
+```json
+{
+  "url": "https://example.com",
+  "finalUrl": "https://example.com",
+  "statusCode": 200,
+  "headers": { "content-type": "text/html", "strict-transport-security": "max-age=31536000" },
+  "redirectChain": [],
+  "security": {
+    "hsts": true, "csp": false, "xFrameOptions": "DENY",
+    "xContentTypeOptions": true, "referrerPolicy": "strict-origin", "permissionsPolicy": false
+  },
+  "server": "ECS (dcb/7F84)",
+  "inspectedAt": "2026-02-20T09:00:00Z"
+}
+```
+
 ## How Payment Works
 
 serve402 uses the [x402 protocol](https://www.x402.org/) — HTTP 402 Payment Required, done right.
@@ -127,9 +187,15 @@ No accounts. No API keys. Just a wallet.
 |----------|-----------|-------------|-------------------|
 | `/fetch` | ~$0.005 | 0.005 USDC | 2,500 drops |
 | `/execute` | ~$0.005 | 0.005 USDC | 2,500 drops |
+| `/search` | ~$0.004 | 0.004 USDC | 2,000 drops |
 | `/screenshot` | ~$0.003 | 0.003 USDC | 1,500 drops |
 | `/pdf` | ~$0.003 | 0.003 USDC | 1,500 drops |
+| `/xrpl-query` | ~$0.002 | 0.002 USDC | 1,000 drops |
+| `/dns` | ~$0.001 | 0.001 USDC | 500 drops |
+| `/headers` | ~$0.001 | 0.001 USDC | 500 drops |
 | `/services` | Free | — | — |
+| `/stats` | Free | — | — |
+| `/marketplace` | Free | — | — |
 | `/health` | Free | — | — |
 
 **Rate limiting:** 10 requests per minute per IP on all paid endpoints.
@@ -177,7 +243,11 @@ npm run dev   # runs with tsx (hot reload)
 ```
 Client → Caddy (TLS) → Express → Payment Middleware → Service Backends
                           │                              ├── Puppeteer (/fetch, /screenshot, /pdf)
-                          │                              └── E2B API (/execute)
+                          │                              ├── E2B API (/execute)
+                          │                              ├── Brave API (/search)
+                          │                              ├── XRPL Node (/xrpl-query)
+                          │                              ├── Node dns/promises (/dns)
+                          │                              └── Native fetch (/headers)
                           ├── @x402/express (Base/EVM routes)
                           │     └── CDP Facilitator (verify + settle)
                           └── x402-xrpl/express (XRPL routes)
