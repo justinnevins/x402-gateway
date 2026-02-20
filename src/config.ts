@@ -23,7 +23,7 @@ export const config = {
   e2bApiKey: process.env.E2B_API_KEY || "",
   cdpApiKeyId: process.env.CDP_API_KEY_ID || "",
   cdpApiKeySecret: cdpSecret,
-  version: "0.7.0",
+  version: "0.8.0",
   services: [
     {
       endpoint: "POST /fetch",
@@ -74,6 +74,24 @@ export const config = {
       endpoint: "POST /xrpl-query",
       description: "Query the XRPL ledger via a local node (read-only)",
       price: "$0.002",
+      accepts: [
+        { scheme: "exact", network, asset: "USDC" },
+        { scheme: "exact", network: xrplNetwork, asset: "XRP" },
+      ],
+    },
+    {
+      endpoint: "POST /dns",
+      description: "DNS record lookup (A, AAAA, MX, TXT, NS, CNAME, SOA, SRV, PTR)",
+      price: "$0.001",
+      accepts: [
+        { scheme: "exact", network, asset: "USDC" },
+        { scheme: "exact", network: xrplNetwork, asset: "XRP" },
+      ],
+    },
+    {
+      endpoint: "POST /headers",
+      description: "Inspect HTTP response headers with security analysis and redirect chain tracking",
+      price: "$0.001",
       accepts: [
         { scheme: "exact", network, asset: "USDC" },
         { scheme: "exact", network: xrplNetwork, asset: "XRP" },
