@@ -77,13 +77,13 @@ function amountForEndpoint(path: string, chain: 'base' | 'xrpl'): string {
     return chain === 'xrpl' ? '2500' : '0.005000';
   }
   if (base === '/search') {
-    return chain === 'xrpl' ? '2000' : '0.004000';
+    return chain === 'xrpl' ? '4500' : '0.009000';
   }
   if (base === '/xrpl-query') {
     return chain === 'xrpl' ? '1000' : '0.002000';
   }
   if (base === '/dns' || base === '/headers') {
-    return chain === 'xrpl' ? '500' : '0.001000';
+    return chain === 'xrpl' ? '1000' : '0.002000';
   }
   // screenshot / pdf
   return chain === 'xrpl' ? '1500' : '0.003000';
@@ -310,7 +310,7 @@ app.use(
         accepts: [
           {
             scheme: 'exact',
-            price: '$0.004',
+            price: '$0.009',
             network: config.network as `${string}:${string}`,
             payTo,
           },
@@ -406,7 +406,7 @@ app.use(
         accepts: [
           {
             scheme: 'exact',
-            price: '$0.001',
+            price: '$0.002',
             network: config.network as `${string}:${string}`,
             payTo,
           },
@@ -451,7 +451,7 @@ app.use(
         accepts: [
           {
             scheme: 'exact',
-            price: '$0.001',
+            price: '$0.002',
             network: config.network as `${string}:${string}`,
             payTo,
           },
@@ -524,10 +524,10 @@ if (xrplPayTo) {
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/execute', price: '2500', resource: 'serve402:execute', description: 'Run code in an isolated sandbox' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/screenshot', price: '1500', resource: 'serve402:screenshot', description: 'Take a screenshot of any URL' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '2000', resource: 'serve402:search', description: 'Search the web using Brave Search API' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '4500', resource: 'serve402:search', description: 'Search the web using Brave Search API' }));
   app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/xrpl-query', price: '1000', resource: 'serve402:xrpl-query', description: 'Query the XRPL ledger via a local node (read-only)' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/dns', price: '500', resource: 'serve402:dns', description: 'DNS record lookup' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/headers', price: '500', resource: 'serve402:headers', description: 'Inspect HTTP response headers' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/dns', price: '1000', resource: 'serve402:dns', description: 'DNS record lookup' }));
+  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/headers', price: '1000', resource: 'serve402:headers', description: 'Inspect HTTP response headers' }));
 
   // Wire XRPL routes to the same service handlers
   app.post('/xrpl/fetch', apiLimiter, async (req, res) => {

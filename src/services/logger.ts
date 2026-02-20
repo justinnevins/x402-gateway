@@ -263,8 +263,8 @@ export function getMarketplace(cfg: MarketplaceConfig): MarketplaceService[] {
       name: 'Web Search',
       description: 'Search the web via Brave Search API and return structured results',
       endpoints: {
-        base: { method: 'POST', path: '/search', network, asset: 'USDC', price: '0.004' },
-        xrpl: { method: 'POST', path: '/xrpl/search', network: xrplNetwork, asset: 'XRP', price: '2000 drops' },
+        base: { method: 'POST', path: '/search', network, asset: 'USDC', price: '0.009' },
+        xrpl: { method: 'POST', path: '/xrpl/search', network: xrplNetwork, asset: 'XRP', price: '4500 drops' },
       },
       input: {
         query: 'string (required)',

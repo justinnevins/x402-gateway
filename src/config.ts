@@ -64,7 +64,7 @@ export const config = {
     {
       endpoint: "POST /search",
       description: "Search the web using Brave Search API",
-      price: "$0.004",
+      price: "$0.009",
       accepts: [
         { scheme: "exact", network, asset: "USDC" },
         { scheme: "exact", network: xrplNetwork, asset: "XRP" },
@@ -82,7 +82,7 @@ export const config = {
     {
       endpoint: "POST /dns",
       description: "DNS record lookup (A, AAAA, MX, TXT, NS, CNAME, SOA, SRV, PTR)",
-      price: "$0.001",
+      price: "$0.002",
       accepts: [
         { scheme: "exact", network, asset: "USDC" },
         { scheme: "exact", network: xrplNetwork, asset: "XRP" },
@@ -91,7 +91,7 @@ export const config = {
     {
       endpoint: "POST /headers",
       description: "Inspect HTTP response headers with security analysis and redirect chain tracking",
-      price: "$0.001",
+      price: "$0.002",
       accepts: [
         { scheme: "exact", network, asset: "USDC" },
         { scheme: "exact", network: xrplNetwork, asset: "XRP" },
