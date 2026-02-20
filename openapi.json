@@ -1,0 +1,834 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "serve402 API",
+    "version": "0.8.0",
+    "description": "Pay-per-use AI agent tools for web fetch, search, code execution, screenshots, PDFs, and XRPL queries. All endpoints require an x402 micropayment (USDC on Base mainnet or XRP drops on XRPL mainnet). No API keys or subscriptions — pay only for what you use.",
+    "contact": {
+      "name": "serve402",
+      "url": "https://serve402.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://serve402.com",
+      "description": "Production (Base/USDC payments)"
+    },
+    {
+      "url": "https://serve402.com/xrpl",
+      "description": "XRPL mirror — same endpoints, XRP drop payments"
+    }
+  ],
+  "paths": {
+    "/fetch": {
+      "post": {
+        "operationId": "fetch",
+        "summary": "Fetch and extract readable content from a URL",
+        "description": "Uses a headless browser + Mozilla Readability to extract clean text or markdown from any public URL. Costs $0.005 USDC (Base) or 2500 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.005",
+        "x-x402-price-xrpl-drops": 2500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchRequest"
+              },
+              "examples": {
+                "basic": {
+                  "value": {
+                    "url": "https://example.com/article"
+                  }
+                },
+                "full": {
+                  "value": {
+                    "url": "https://example.com/article",
+                    "format": "markdown",
+                    "maxChars": 50000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extracted content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FetchResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "operationId": "search",
+        "summary": "Web search with structured results",
+        "description": "Powered by Brave Search. Returns titles, URLs, snippets, and optional publish dates for up to 20 results. Costs $0.009 USDC (Base) or 4500 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.009",
+        "x-x402-price-xrpl-drops": 4500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              },
+              "examples": {
+                "basic": {
+                  "value": {
+                    "query": "XRP Ledger DEX order book"
+                  }
+                },
+                "filtered": {
+                  "value": {
+                    "query": "XRPL AMM news",
+                    "count": 10,
+                    "freshness": "week"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/execute": {
+      "post": {
+        "operationId": "execute",
+        "summary": "Execute Python or JavaScript code in a cloud sandbox",
+        "description": "Runs code in an isolated E2B sandbox with common libraries available. Returns stdout, stderr, exit code, and execution time. Max timeout 30 seconds. Costs $0.005 USDC (Base) or 2500 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.005",
+        "x-x402-price-xrpl-drops": 2500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteRequest"
+              },
+              "examples": {
+                "python": {
+                  "value": {
+                    "language": "python",
+                    "code": "import math\nprint(math.pi)"
+                  }
+                },
+                "javascript": {
+                  "value": {
+                    "language": "javascript",
+                    "code": "console.log('hello from node')",
+                    "timeout": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/screenshot": {
+      "post": {
+        "operationId": "screenshot",
+        "summary": "Capture a screenshot of a web page",
+        "description": "Uses a headless Chromium browser to capture a PNG or JPEG screenshot of any public URL. Supports full-page capture. Returns raw image bytes. Costs $0.003 USDC (Base) or 1500 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.003",
+        "x-x402-price-xrpl-drops": 1500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreenshotRequest"
+              },
+              "examples": {
+                "basic": {
+                  "value": {
+                    "url": "https://serve402.com"
+                  }
+                },
+                "fullPage": {
+                  "value": {
+                    "url": "https://serve402.com",
+                    "format": "jpeg",
+                    "fullPage": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Screenshot image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/pdf": {
+      "post": {
+        "operationId": "pdf",
+        "summary": "Generate a PDF from a web page URL",
+        "description": "Renders a URL in headless Chromium and exports it as a PDF. Supports A4, Letter, and Legal page formats. Returns raw PDF bytes. Costs $0.003 USDC (Base) or 1500 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.003",
+        "x-x402-price-xrpl-drops": 1500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdfRequest"
+              },
+              "examples": {
+                "basic": {
+                  "value": {
+                    "url": "https://serve402.com"
+                  }
+                },
+                "letter": {
+                  "value": {
+                    "url": "https://serve402.com",
+                    "format": "Letter"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF document bytes",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/xrpl-query": {
+      "post": {
+        "operationId": "xrplQuery",
+        "summary": "Query the XRP Ledger (read-only)",
+        "description": "Proxies read-only XRPL API commands to a reliable node cluster. Supports account info, transaction lookup, ledger details, trust lines, DEX order books, and more. Costs $0.002 USDC (Base) or 1000 XRP drops (XRPL) per request, paid via x402.",
+        "x-x402-price": "$0.002",
+        "x-x402-price-xrpl-drops": 1000,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/XrplQueryRequest"
+              },
+              "examples": {
+                "accountInfo": {
+                  "summary": "Account balance and sequence",
+                  "value": {
+                    "command": "account_info",
+                    "params": {
+                      "account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe"
+                    }
+                  }
+                },
+                "bookOffers": {
+                  "summary": "DEX order book XRP/USD",
+                  "value": {
+                    "command": "book_offers",
+                    "params": {
+                      "taker_gets": { "currency": "XRP" },
+                      "taker_pays": {
+                        "currency": "USD",
+                        "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq"
+                      }
+                    }
+                  }
+                },
+                "accountTx": {
+                  "summary": "Recent transactions for an account",
+                  "value": {
+                    "command": "account_tx",
+                    "params": {
+                      "account": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+                      "limit": 10
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "XRPL API response (proxied verbatim from the XRPL node)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Raw XRPL protocol response. Shape varies by command.",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
+    "/xrpl/fetch": {
+      "post": {
+        "operationId": "xrplFetch",
+        "summary": "Fetch URL content (XRPL payment mirror)",
+        "description": "Same as POST /fetch — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 2500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FetchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extracted content",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FetchResponse" }
+              }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/xrpl/search": {
+      "post": {
+        "operationId": "xrplSearch",
+        "summary": "Web search (XRPL payment mirror)",
+        "description": "Same as POST /search — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 4500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SearchRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SearchResponse" }
+              }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/xrpl/execute": {
+      "post": {
+        "operationId": "xrplExecute",
+        "summary": "Execute code (XRPL payment mirror)",
+        "description": "Same as POST /execute — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 2500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ExecuteRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExecuteResponse" }
+              }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/xrpl/screenshot": {
+      "post": {
+        "operationId": "xrplScreenshot",
+        "summary": "Screenshot (XRPL payment mirror)",
+        "description": "Same as POST /screenshot — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 1500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ScreenshotRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Screenshot image bytes",
+            "content": {
+              "image/png": { "schema": { "type": "string", "format": "binary" } },
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/xrpl/pdf": {
+      "post": {
+        "operationId": "xrplPdf",
+        "summary": "Generate PDF (XRPL payment mirror)",
+        "description": "Same as POST /pdf — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 1500,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PdfRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF document bytes",
+            "content": {
+              "application/pdf": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/xrpl/xrpl-query": {
+      "post": {
+        "operationId": "xrplXrplQuery",
+        "summary": "XRPL query (XRPL payment mirror)",
+        "description": "Same as POST /xrpl-query — payment in XRP drops via XRPL.",
+        "x-x402-price-xrpl-drops": 1000,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/XrplQueryRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "XRPL API response",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "additionalProperties": true }
+              }
+            }
+          },
+          "402": { "$ref": "#/components/responses/PaymentRequired" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FetchRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The URL to fetch content from (http:// or https://).",
+            "example": "https://example.com/article"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["markdown", "text"],
+            "default": "markdown",
+            "description": "Output format. 'markdown' preserves basic formatting; 'text' strips all markup."
+          },
+          "maxChars": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 200000,
+            "default": 50000,
+            "description": "Maximum characters returned. Content is truncated with a '[truncated]' marker when exceeded."
+          }
+        }
+      },
+      "FetchResponse": {
+        "type": "object",
+        "required": ["url", "title", "content", "contentLength", "fetchedAt"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The final URL after any redirects."
+          },
+          "title": {
+            "type": "string",
+            "description": "Page title extracted from the document."
+          },
+          "content": {
+            "type": "string",
+            "description": "Extracted readable content in the requested format."
+          },
+          "contentLength": {
+            "type": "integer",
+            "description": "Character count of the content returned."
+          },
+          "fetchedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of when the page was fetched."
+          }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Search query string.",
+            "example": "XRP Ledger DEX order book"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5,
+            "description": "Number of results to return."
+          },
+          "freshness": {
+            "type": "string",
+            "enum": ["day", "week", "month", "year"],
+            "description": "Filter results by recency. Omit for all-time results."
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "required": ["query", "count", "results"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The original search query."
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of results returned."
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResult"
+            }
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "required": ["title", "url", "snippet"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Page title."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Result URL."
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Short descriptive excerpt from the page."
+          },
+          "publishedDate": {
+            "type": "string",
+            "description": "Publication date if available (not always present)."
+          }
+        }
+      },
+      "ExecuteRequest": {
+        "type": "object",
+        "required": ["language", "code"],
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": ["python", "javascript"],
+            "description": "Programming language to execute."
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Source code to execute.",
+            "example": "import math\nprint(math.pi)"
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 10,
+            "description": "Execution timeout in seconds."
+          }
+        }
+      },
+      "ExecuteResponse": {
+        "type": "object",
+        "required": ["stdout", "stderr", "exitCode", "executionTime"],
+        "properties": {
+          "stdout": {
+            "type": "string",
+            "description": "Standard output from the program."
+          },
+          "stderr": {
+            "type": "string",
+            "description": "Standard error output."
+          },
+          "exitCode": {
+            "type": "integer",
+            "description": "Process exit code (0 = success)."
+          },
+          "executionTime": {
+            "type": "number",
+            "format": "double",
+            "description": "Wall-clock execution time in seconds."
+          }
+        }
+      },
+      "ScreenshotRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The URL to screenshot (http:// or https://).",
+            "example": "https://serve402.com"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["png", "jpeg"],
+            "default": "png",
+            "description": "Image format. 'png' is lossless; 'jpeg' produces smaller files."
+          },
+          "fullPage": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, captures the full scrollable page height; otherwise captures the viewport."
+          }
+        }
+      },
+      "PdfRequest": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The URL to convert to PDF (http:// or https://).",
+            "example": "https://serve402.com"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["A4", "Letter", "Legal"],
+            "default": "A4",
+            "description": "Page size format."
+          }
+        }
+      },
+      "XrplQueryRequest": {
+        "type": "object",
+        "required": ["command"],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "account_info",
+              "tx",
+              "ledger",
+              "account_lines",
+              "account_offers",
+              "book_offers",
+              "gateway_balances",
+              "account_tx"
+            ],
+            "description": "XRPL protocol command to execute (read-only)."
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Command parameters merged with the command field. See XRPL docs for per-command params.\n\nExamples:\n- account_info: { \"account\": \"r...\" }\n- tx: { \"transaction\": \"HASH...\" }\n- ledger: { \"ledger_index\": \"validated\" }\n- account_lines: { \"account\": \"r...\", \"peer\": \"r...\" }\n- account_offers: { \"account\": \"r...\" }\n- book_offers: { \"taker_gets\": { \"currency\": \"XRP\" }, \"taker_pays\": { \"currency\": \"USD\", \"issuer\": \"r...\" } }\n- gateway_balances: { \"account\": \"r...\", \"hotwallet\": [\"r...\"] }\n- account_tx: { \"account\": \"r...\", \"limit\": 10 }"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message."
+          }
+        }
+      }
+    },
+    "responses": {
+      "PaymentRequired": {
+        "description": "Payment required (x402). The response includes an X-Payment-Required header containing base64-encoded JSON describing the payment requirements (network, amount, payTo address, facilitator URL).",
+        "headers": {
+          "X-Payment-Required": {
+            "schema": {
+              "type": "string",
+              "description": "Base64-encoded JSON with payment requirements. Decode and parse to get network, maxAmountRequired, payTo, asset, and facilitatorUrl fields."
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": "Payment required" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid request body (validation error).",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Internal server error.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    }
+  }
+}

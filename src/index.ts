@@ -20,13 +20,67 @@ import { queryXrpl } from './services/xrpl-query.js';
 import { queryDns } from './services/dns.js';
 import { inspectHeaders } from './services/headers.js';
 import { initDb, logRequest, getStats, getMarketplace } from './services/logger.js';
+import {
+  initApiKeyDb,
+  createApiKey,
+  getUsage,
+  getApiKeyByStripeCustomer,
+  upgradeTier,
+  type Tier,
+  STRIPE_PRICE_IDS,
+} from './services/apikeys.js';
+import { apiKeyAuth, skipIfApiKey, requireApiKey } from './middleware/auth.js';
+import Stripe from 'stripe';
 
-// ─── Init DB ─────────────────────────────────────────────────────────────────
+// ─── Init DBs ────────────────────────────────────────────────────────────────
 initDb();
+initApiKeyDb();
+
+// ─── Stripe client ────────────────────────────────────────────────────────────
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28.clover' })
+  : null;
 
 const app = express();
 app.use(cors());
+
+// ─── Stripe webhook (raw body required — must be registered BEFORE express.json) ──
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const sig     = req.headers['stripe-signature'];
+    const secret  = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!stripe || !secret) {
+      console.warn('[stripe] Webhook received but Stripe not configured');
+      res.status(400).json({ error: 'Stripe not configured' });
+      return;
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body as Buffer, sig as string, secret);
+    } catch (err: any) {
+      console.error('[stripe] Webhook signature verification failed:', err.message);
+      res.status(400).json({ error: `Webhook error: ${err.message}` });
+      return;
+    }
+
+    try {
+      await handleStripeEvent(event);
+    } catch (err: any) {
+      console.error('[stripe] Event handling error:', err.message);
+    }
+
+    res.json({ received: true });
+  },
+);
+
 app.use(express.json());
+
+// ─── API key auth middleware (runs before x402 on every request) ──────────────
+app.use(apiKeyAuth);
 
 // ─── Landing page (if src/public exists) ─────────────────────────────────
 // In production, the serve402 platform layer provides the landing page.
@@ -126,9 +180,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Apply payment middleware — protects routes listed here
+// Apply payment middleware — protects routes listed here.
+// Wrapped with skipIfApiKey so valid API key holders bypass x402.
 app.use(
-  paymentMiddleware(
+  skipIfApiKey(paymentMiddleware(
     {
       'POST /fetch': {
         accepts: [
@@ -504,7 +559,7 @@ app.use(
       },
     },
     server,
-  ),
+  )),  // closes paymentMiddleware + skipIfApiKey
 );
 
 // --- XRPL Payment Routes ---
@@ -519,15 +574,15 @@ const xrplCommonOpts = {
 };
 
 if (xrplPayTo) {
-  // XRPL-protected routes (same endpoints, XRPL payments)
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/fetch', price: '2500', resource: 'serve402:fetch', description: 'Extract readable content from any URL' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/execute', price: '2500', resource: 'serve402:execute', description: 'Run code in an isolated sandbox' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/screenshot', price: '1500', resource: 'serve402:screenshot', description: 'Take a screenshot of any URL' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '4500', resource: 'serve402:search', description: 'Search the web using Brave Search API' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/xrpl-query', price: '1000', resource: 'serve402:xrpl-query', description: 'Query the XRPL ledger via a local node (read-only)' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/dns', price: '1000', resource: 'serve402:dns', description: 'DNS record lookup' }));
-  app.use(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/headers', price: '1000', resource: 'serve402:headers', description: 'Inspect HTTP response headers' }));
+  // XRPL-protected routes — wrapped with skipIfApiKey so API key holders bypass XRPL payment
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/fetch', price: '2500', resource: 'serve402:fetch', description: 'Extract readable content from any URL' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/execute', price: '2500', resource: 'serve402:execute', description: 'Run code in an isolated sandbox' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/screenshot', price: '1500', resource: 'serve402:screenshot', description: 'Take a screenshot of any URL' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/pdf', price: '1500', resource: 'serve402:pdf', description: 'Generate a PDF from any URL' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/search', price: '4500', resource: 'serve402:search', description: 'Search the web using Brave Search API' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/xrpl-query', price: '1000', resource: 'serve402:xrpl-query', description: 'Query the XRPL ledger via a local node (read-only)' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/dns', price: '1000', resource: 'serve402:dns', description: 'DNS record lookup' })));
+  app.use(skipIfApiKey(requireXrplPayment({ ...xrplCommonOpts, path: '/xrpl/headers', price: '1000', resource: 'serve402:headers', description: 'Inspect HTTP response headers' })));
 
   // Wire XRPL routes to the same service handlers
   app.post('/xrpl/fetch', apiLimiter, async (req, res) => {
@@ -582,6 +637,168 @@ if (xrplPayTo) {
 }
 
 // Health check
+// ─── API Key Management Endpoints ────────────────────────────────────────────
+
+/**
+ * POST /api/signup
+ * Body: { email: string, tier?: 'free' | 'starter' | 'growth' }
+ *
+ * - Free tier: creates key immediately, returns it.
+ * - Paid tiers: creates key at 'free', creates Stripe Checkout session,
+ *   returns { key, checkoutUrl }. Key upgrades to paid tier on webhook success.
+ */
+app.post('/api/signup', async (req, res) => {
+  const { email, tier = 'free' } = req.body ?? {};
+
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ error: 'email is required' });
+    return;
+  }
+
+  const validTiers: Tier[] = ['free', 'starter', 'growth'];
+  if (!validTiers.includes(tier as Tier)) {
+    res.status(400).json({
+      error: `Invalid tier. Must be one of: ${validTiers.join(', ')}`,
+    });
+    return;
+  }
+
+  try {
+    if (tier === 'free') {
+      const key = createApiKey(email, 'free');
+      res.json({
+        key,
+        tier: 'free',
+        message: 'API key created. Pass it as Authorization: Bearer <key>',
+      });
+      return;
+    }
+
+    // Paid tier: create key at 'free' for now, then redirect to Stripe Checkout
+    if (!stripe) {
+      res.status(503).json({ error: 'Stripe not configured on this server' });
+      return;
+    }
+
+    const priceId = STRIPE_PRICE_IDS[tier as Tier];
+    if (!priceId) {
+      res.status(400).json({ error: `No price configured for tier: ${tier}` });
+      return;
+    }
+
+    // Create the API key at free tier — will be upgraded after payment
+    const key = createApiKey(email, 'free');
+
+    // Create Stripe Checkout session with metadata to link back to the key
+    const session = await stripe.checkout.sessions.create({
+      mode:                 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      customer_email:       email,
+      metadata:             { api_key: key, requested_tier: tier },
+      subscription_data:    { metadata: { api_key: key, requested_tier: tier }, trial_period_days: 14 },
+      success_url:          `${process.env.PUBLIC_URL ?? 'https://serve402.com'}/api-success?key=${encodeURIComponent(key)}`,
+      cancel_url:           `${process.env.PUBLIC_URL ?? 'https://serve402.com'}/pricing`,
+    });
+
+    res.json({
+      key,
+      tier: 'free',
+      message: 'API key created. Complete payment to unlock your plan.',
+      checkoutUrl: session.url,
+    });
+  } catch (err: any) {
+    console.error('[signup] Error:', err.message);
+    res.status(500).json({ error: 'Failed to create API key' });
+  }
+});
+
+/**
+ * GET /api/usage
+ * Requires: Authorization: Bearer sk_live_...
+ * Returns current usage stats for this billing period.
+ */
+app.get('/api/usage', requireApiKey, (req, res) => {
+  const { keyRow } = res.locals.apiKeyAuth!;
+  const stats = getUsage(keyRow.key);
+  if (!stats) {
+    res.status(404).json({ error: 'Key not found' });
+    return;
+  }
+  res.json({ email: keyRow.email, ...stats });
+});
+
+// ─── Stripe event handler (called from webhook route defined above) ────────────
+
+async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  console.log(`[stripe] Event: ${event.type}`);
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const apiKey       = session.metadata?.api_key;
+      const requestedTier = session.metadata?.requested_tier as Tier | undefined;
+
+      if (!apiKey || !requestedTier) break;
+
+      const keyRow = (await import('./services/apikeys.js')).validateApiKey(apiKey);
+      if (!keyRow) {
+        console.warn(`[stripe] checkout.session.completed: key not found: ${apiKey}`);
+        break;
+      }
+
+      const customerId = typeof session.customer === 'string'
+        ? session.customer
+        : session.customer?.id ?? undefined;
+
+      upgradeTier(keyRow.id, requestedTier, customerId);
+      console.log(`[stripe] Upgraded key ${apiKey.substring(0, 14)}... → ${requestedTier}`);
+      break;
+    }
+
+    case 'customer.subscription.deleted': {
+      // Downgrade to free when subscription is cancelled
+      const sub        = event.data.object as Stripe.Subscription;
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+      const keyRow     = getApiKeyByStripeCustomer(customerId);
+
+      if (!keyRow) {
+        console.warn(`[stripe] subscription.deleted: no key for customer ${customerId}`);
+        break;
+      }
+
+      upgradeTier(keyRow.id, 'free');
+      console.log(`[stripe] Downgraded key ${keyRow.key.substring(0, 14)}... → free (subscription cancelled)`);
+      break;
+    }
+
+    case 'customer.subscription.updated': {
+      const sub        = event.data.object as Stripe.Subscription;
+      const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+      const keyRow     = getApiKeyByStripeCustomer(customerId);
+
+      if (!keyRow) break;
+
+      // Determine tier from the active price
+      const priceId = sub.items.data[0]?.price?.id;
+      let newTier: Tier = 'free';
+      if (priceId === STRIPE_PRICE_IDS.starter) newTier = 'starter';
+      else if (priceId === STRIPE_PRICE_IDS.growth) newTier = 'growth';
+
+      if (newTier !== keyRow.tier) {
+        upgradeTier(keyRow.id, newTier);
+        console.log(`[stripe] Updated key ${keyRow.key.substring(0, 14)}... → ${newTier}`);
+      }
+      break;
+    }
+
+    default:
+      // Unhandled event type — ignore
+      break;
+  }
+}
+
+// ─── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: config.version });
 });

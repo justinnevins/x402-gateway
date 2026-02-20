@@ -1,0 +1,104 @@
+{
+  "$schema": "https://registry.modelcontextprotocol.io/schema/v0/server.json",
+  "name": "com.serve402/mcp-server",
+  "title": "serve402 — Pay-per-use AI Agent Tools",
+  "description": "Web fetch, search, code execution, screenshots, PDFs, and XRPL queries. No API keys — agents pay per request with USDC on Base or XRP via x402 protocol. Works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.",
+  "version": "1.0.0",
+  "homepage": "https://serve402.com",
+  "repository": "https://github.com/justinnevins/x402-gateway",
+  "license": "MIT",
+  "author": {
+    "name": "serve402",
+    "url": "https://serve402.com"
+  },
+  "categories": [
+    "web",
+    "search",
+    "code-execution",
+    "blockchain",
+    "utilities"
+  ],
+  "tags": [
+    "x402",
+    "web-fetch",
+    "web-scraping",
+    "web-search",
+    "code-sandbox",
+    "screenshot",
+    "pdf",
+    "xrpl",
+    "xrp",
+    "pay-per-use",
+    "usdc",
+    "base",
+    "crypto-payments"
+  ],
+  "tools": [
+    {
+      "name": "serve402_fetch",
+      "description": "Extract readable content from any URL ($0.005/request)"
+    },
+    {
+      "name": "serve402_search",
+      "description": "Web search with structured results ($0.009/request)"
+    },
+    {
+      "name": "serve402_execute",
+      "description": "Run Python or JavaScript in a secure sandbox ($0.005/request)"
+    },
+    {
+      "name": "serve402_screenshot",
+      "description": "Capture a webpage as PNG or JPEG ($0.003/request)"
+    },
+    {
+      "name": "serve402_pdf",
+      "description": "Generate a PDF from any URL ($0.003/request)"
+    },
+    {
+      "name": "serve402_xrpl_query",
+      "description": "Query the XRP Ledger blockchain ($0.002/request)"
+    }
+  ],
+  "installation": {
+    "npm": "@serve402/mcp-server",
+    "binary": "serve402-mcp"
+  },
+  "configuration": {
+    "required": [
+      {
+        "env": "SERVE402_WALLET_PRIVATE_KEY",
+        "description": "EVM wallet private key (0x...) with USDC on Base mainnet",
+        "sensitive": true
+      }
+    ],
+    "optional": [
+      {
+        "env": "SERVE402_PAYMENT_NETWORK",
+        "description": "Payment network: 'base' (default, USDC) or 'xrpl' (XRP drops)",
+        "default": "base"
+      },
+      {
+        "env": "SERVE402_XRPL_SEED",
+        "description": "XRPL wallet seed (s...) — required when SERVE402_PAYMENT_NETWORK=xrpl",
+        "sensitive": true
+      },
+      {
+        "env": "SERVE402_BASE_URL",
+        "description": "API base URL override (default: https://serve402.com)",
+        "default": "https://serve402.com"
+      }
+    ]
+  },
+  "pricing": {
+    "model": "pay-per-request",
+    "currency": "USDC or XRP",
+    "rates": {
+      "serve402_fetch": "$0.005",
+      "serve402_search": "$0.009",
+      "serve402_execute": "$0.005",
+      "serve402_screenshot": "$0.003",
+      "serve402_pdf": "$0.003",
+      "serve402_xrpl_query": "$0.002"
+    }
+  }
+}

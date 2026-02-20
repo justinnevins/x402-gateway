@@ -1,0 +1,55 @@
+{
+  "name": "@serve402/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for serve402.com — pay-per-use AI agent tools via x402 protocol (web fetch, search, code execution, screenshots, PDFs, XRPL queries)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "serve402-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "x402",
+    "web-fetch",
+    "web-search",
+    "code-execution",
+    "screenshot",
+    "pdf",
+    "xrpl",
+    "ai-tools",
+    "serve402"
+  ],
+  "author": "serve402.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justinnevins/x402-gateway"
+  },
+  "homepage": "https://serve402.com",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "viem": "^2.0.0",
+    "x402-fetch": "^1.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "mcp.json"
+  ]
+}
