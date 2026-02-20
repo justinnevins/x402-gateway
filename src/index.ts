@@ -26,6 +26,9 @@ app.use(express.json());
 
 // ─── Static landing page (served before any payment middleware) ───────────
 app.use(express.static('src/public'));
+app.get('/', (_req, res) => {
+  res.sendFile('index.html', { root: 'src/public' });
+});
 
 // Rate limiting: 10 requests per minute per IP on paid endpoints
 const apiLimiter = rateLimit({
