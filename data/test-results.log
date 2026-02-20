@@ -1,0 +1,112 @@
+
+════════════════════════════════════════════════════════════
+  serve402.com — XRPL x402 Integration Test
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:32.435Z] Test started
+
+════════════════════════════════════════════════════════════
+  Step 1: Load Test Wallet
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:32.614Z] Wallet address:    rET3iJtAJeqfzDpjdjejTRXeNbsMwvhcQM
+[2026-02-20T02:18:32.615Z] Expected address:  rET3iJtAJeqfzDpjdjejTRXeNbsMwvhcQM
+[2026-02-20T02:18:32.615Z] ✅ Wallet verified
+
+════════════════════════════════════════════════════════════
+  Step 2: Pre-payment Balance
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:32.615Z] Connecting to XRPL node: ws://xrpl.carbonvibe.com:6006
+[2026-02-20T02:18:32.769Z] Connected to XRPL node
+[2026-02-20T02:18:32.778Z] Balance before: 5.000001 XRP
+
+════════════════════════════════════════════════════════════
+  Step 3: Probe — Expect 402 Payment Required
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:32.778Z] POST https://serve402.com/xrpl/fetch  body: {"url":"https://example.com"}
+[2026-02-20T02:18:33.160Z] Response status: 402 Payment Required
+[2026-02-20T02:18:33.160Z] ✅ Got 402 Payment Required — good!
+
+════════════════════════════════════════════════════════════
+  Step 4: Parse Payment Requirements
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:33.162Z] Raw header: PAYMENT-REQUIRED: eyJhY2NlcHRzIjpbeyJhbW91bnQiOiIyNTAwIiwiYXNzZXQiOiJYUlAiLCJleHRyYSI6eyJpbnZvaWNl…
+[2026-02-20T02:18:33.163Z] 
+Decoded payment requirements:
+[2026-02-20T02:18:33.163Z] {
+  "x402Version": 2,
+  "resource": {
+    "url": "serve402:fetch",
+    "description": "Extract readable content from any URL",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "xrpl:0",
+      "amount": "2500",
+      "asset": "XRP",
+      "payTo": "rMVRPENEPfhwht1RkQp6Emw13DeAp2PtLv",
+      "maxTimeoutSeconds": 600,
+      "extra": {
+        "invoiceId": "CD17169E4CCE4716B5CD67A4703ED639",
+        "sourceTag": 804681468
+      }
+    }
+  ],
+  "error": "PAYMENT-SIGNATURE header is required",
+  "extensions": {}
+}
+[2026-02-20T02:18:33.163Z] 
+Payment options count: 1
+[2026-02-20T02:18:33.163Z] 
+  Option [0]:
+[2026-02-20T02:18:33.163Z]     network:  xrpl:0
+[2026-02-20T02:18:33.163Z]     scheme:   exact
+[2026-02-20T02:18:33.163Z]     asset:    XRP
+[2026-02-20T02:18:33.163Z]     amount:   2500
+[2026-02-20T02:18:33.163Z]     payTo:    rMVRPENEPfhwht1RkQp6Emw13DeAp2PtLv
+[2026-02-20T02:18:33.163Z]     invoiceId: CD17169E4CCE4716B5CD67A4703ED639
+
+════════════════════════════════════════════════════════════
+  Step 5: x402Fetch — Signed Payment + Retry
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:33.163Z] Building x402Fetch client...
+[2026-02-20T02:18:33.163Z]   wsUrl:         ws://xrpl.carbonvibe.com:6006
+[2026-02-20T02:18:33.163Z]   networkFilter: xrpl:0
+[2026-02-20T02:18:33.163Z]   schemeFilter:  exact
+[2026-02-20T02:18:33.164Z] Sending paid request...
+[2026-02-20T02:18:43.265Z] 
+Paid response status: 200 OK
+
+════════════════════════════════════════════════════════════
+  Step 6: Verify Response
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:43.266Z] Response body length: 363 chars
+[2026-02-20T02:18:43.266Z] Body preview (first 500 chars):
+{"url":"https://example.com","title":"Example Domain","content":"<div id=\"readability-page-1\" class=\"page\"><div><p>This domain is for use in documentation examples without needing permission. Avoid use in operations.</p><p><a href=\"https://iana.org/domains/example\">Learn more</a></p></div></div>","contentLength":231,"fetchedAt":"2026-02-20T02:18:43.187Z"}
+[2026-02-20T02:18:43.266Z] 
+✅ Got 200 with real content — payment accepted!
+[2026-02-20T02:18:43.267Z] 
+PAYMENT-RESPONSE header: eyJuZXR3b3JrIjoieHJwbDowIiwicGF5ZXIiOiJyRVQzaUp0QUplcWZ6RHBqZGplalRSWGVOYnNNd3ZoY1FNIiwic3VjY2VzcyI6dHJ1ZSwidHJhbnNhY3Rpb24iOiJGMkQwMUQ3RTE0MjFBNzc1NkZDREI1REY5Q0I1OTJGRTkwN0VENTIzQ0QyQUM4NEIwMzhDRTU4…
+
+════════════════════════════════════════════════════════════
+  Step 7: Post-payment Balance
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:43.267Z] Waiting 5 seconds for ledger to close...
+[2026-02-20T02:18:48.274Z] Balance before: 5.000001 XRP
+[2026-02-20T02:18:48.274Z] Balance after:  4.997489 XRP
+[2026-02-20T02:18:48.274Z] 
+✅ Payment confirmed: 2512 drops (0.002512 XRP) deducted
+[2026-02-20T02:18:48.279Z] Disconnected from XRPL node
+
+════════════════════════════════════════════════════════════
+  Test Summary
+════════════════════════════════════════════════════════════
+[2026-02-20T02:18:48.279Z] RESULT: ✅ PASS
+[2026-02-20T02:18:48.279Z] Target URL:     https://example.com
+[2026-02-20T02:18:48.279Z] Gateway URL:    https://serve402.com/xrpl/fetch
+[2026-02-20T02:18:48.279Z] Wallet:         rET3iJtAJeqfzDpjdjejTRXeNbsMwvhcQM
+[2026-02-20T02:18:48.279Z] Balance before: 5.000001 XRP
+[2026-02-20T02:18:48.279Z] Balance after:  4.997489 XRP
+[2026-02-20T02:18:48.279Z] Drops paid:     2512
+[2026-02-20T02:18:48.279Z] Content size:   363 chars
+[2026-02-20T02:18:48.279Z] Test completed successfully 🎉
