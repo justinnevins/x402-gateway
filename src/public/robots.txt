@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /marketplace
+Allow: /openapi.json
+Allow: /llms.txt
+Allow: /ai-plugin.json
+
+Sitemap: https://serve402.com/sitemap.xml
