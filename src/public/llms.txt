@@ -1,0 +1,36 @@
+# serve402.com
+
+> Pay-per-use AI agent tools. No API keys. Pay with crypto micropayments (USDC on Base or XRP on XRPL).
+
+## What is serve402?
+
+serve402 is an API gateway that lets AI agents pay for web services using the x402 protocol (HTTP 402 Payment Required). Agents discover endpoints, pay per request with cryptocurrency, and get instant access.
+
+## Available Tools
+
+- POST /fetch — Extract readable content from any URL ($0.005/req)
+- POST /execute — Run Python or JavaScript in a secure sandbox ($0.005/req)
+- POST /search — Web search with structured results ($0.009/req)
+- POST /screenshot — Capture a webpage as PNG or JPEG ($0.003/req)
+- POST /pdf — Generate a PDF from any URL ($0.003/req)
+- POST /xrpl-query — Query the XRP Ledger blockchain ($0.002/req)
+- POST /dns — DNS lookups ($0.002/req)
+- POST /headers — HTTP header inspection ($0.002/req)
+
+## Payment
+
+All endpoints require an x402 micropayment. Two networks supported:
+- Base mainnet (USDC) — EIP-155 chain 8453
+- XRPL mainnet (XRP drops) — native XRPL
+
+## Integration
+
+- OpenAPI spec: https://serve402.com/openapi.json
+- MCP Server: npx @serve402/mcp-server
+- Marketplace: https://serve402.com/marketplace
+
+## Links
+
+- Website: https://serve402.com
+- GitHub: https://github.com/justinnevins/x402-gateway
+- Docs: https://serve402.com/openapi.json

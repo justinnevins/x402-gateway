@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "serve402",
+  "name_for_model": "serve402",
+  "description_for_human": "Pay-per-use AI agent tools — web fetch, search, code execution, screenshots, PDFs, and XRPL queries. Pay with crypto micropayments, no API keys needed.",
+  "description_for_model": "serve402 provides pay-per-use web tools for AI agents. Available tools: /fetch (extract content from URLs), /execute (run Python/JS code), /search (web search), /screenshot (capture webpages), /pdf (generate PDFs), /xrpl-query (query XRP Ledger), /dns (DNS lookups), /headers (HTTP headers). All endpoints require x402 micropayment in USDC (Base) or XRP drops (XRPL). Use the OpenAPI spec at /openapi.json for full details.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://serve402.com/openapi.json"
+  },
+  "logo_url": "https://serve402.com/logo.png",
+  "contact_email": "justin@carbonvibe.com",
+  "legal_info_url": "https://serve402.com"
+}
